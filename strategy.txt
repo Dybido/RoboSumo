@@ -1,0 +1,19 @@
+Detection : 
+	rotate 
+	Loop:
+		read US
+		if !exceed ring diameter 
+			case 1 : stop rotating and just push
+			case 2 : continue rotating for a few millisecs and then stop at the middle
+			case 3 : stop rotating, read angle & sick trig -> angle it to face the middle of the enemy's robot
+
+Losing Detection : 
+	If lost, stop and go back to Detection() 
+
+Fail-safe plan : 
+	Keep moving forward until the robot detects the line 
+	Rotate 30 degrees(?) 
+	Repeat 
+	Run at full speed 	
+
+
