@@ -50,9 +50,10 @@ btn = Button()
 backupState = False; #If a black line is detected on the light sensor, this is the backup state
 
 # Define some contants that we shouldn't change in the program
+#Default measurements are in mm
 CIRCLE_DIAMETER = 800
 REDETECT_TIME = 2000
-BLACK_LINE_VALUE = 50
+BLACK_LINE_VALUE = 20 #test: 24 white, 5 black
 
 
 def turn(dir, speed, runtime):
@@ -113,14 +114,11 @@ def backup():
 	while any(m.state for m in (leftMotor, rightMotor)):
 		sleep(0.1)
 
-	# Turn backup lights off:
-	Leds.set_color(Leds.RIGHT, Leds.GREEN)
-	Leds.set_color(Leds.LEFT, Leds.GREEN)
-
 	
 # Run the robot until a button is pressed.
 #sleep(3000);
-frontMotor.run_direct(duty_cycle_sp=100) # change duty cycle for more fun :)
+frontMotor.run_direct(duty_cycle_sp=75) # change duty cycle for more fun :)
+forward(75, 0, 0)
 while not btn.any():
         """
         Purpose of this is to test a mockup of the random direction sumo.
@@ -128,7 +126,9 @@ while not btn.any():
         
         while not backupState and not btn.any():
                 # Main sequence that will run until either backupState changes or a botton is pressed
-                if lis.value() < BLACK_LINE_VALUE:
+		
+                if lis.value() <= BLACK_LINE_VALUE:
+			print("value ", lis.value())
                         # Our light sensor detects we're on black, we need to backup now!
                         backupState = True
                 
@@ -137,12 +137,18 @@ while not btn.any():
                 backup()
                 # Turn a random direction
                 randDir = randrange(-1,2,2)
+		print("dir ", randDir)
                 randTime = randint(250,1000)
+		print("time ", randTime)
                 turn(randDir, 75, randTime)
                 while any(m.state for m in (leftMotor, rightMotor)):
-                        sleep((randTime/1000)/10)
+                        sleep(randTime/1000) #seconds
+		print("unsleep")
                 # Charge!
                 forward(75,0,0)
+		# Green lights for forward
+		Leds.set_color(Leds.RIGHT, Leds.GREEN)
+		Leds.set_color(Leds.LEFT, Leds.GREEN)
                 backupState = False
 
 # Stop the motors before exiting.
