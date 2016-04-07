@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 # -----------------------------------------------------------------------------
 # Copyright (c) 2015 Denis Demidov <dennis.demidov@gmail.com>
 #
@@ -33,27 +32,27 @@ from ev3dev.auto import *
 #Connect motors
 rightMotor = LargeMotor(OUTPUT_A)
 leftMotor  = LargeMotor(OUTPUT_D)
-frontMotor = LargeMotor(OUTPUT_C)
+frontMotor = MediumMotor(OUTPUT_C)
 
 # Connect touch sensors.
 #ts1 = TouchSensor(INPUT_1);	assert ts1.connected
 #ts4 = TouchSensor(INPUT_4);	assert ts4.connected
 us = UltrasonicSensor(); assert us.connected
-gs = GyroSensor(); assert gs.connected
-ls = LightSensor(); assert ls.connected #check name of light sensor class
+#gs = GyroSensor(); assert gs.connected
+lis = ColorSensor(); assert lis.connected
 
-gs.mode = 'GYRO-ANG'
+#gs.mode = 'GYRO-ANG'
 
 # We will need to check EV3 buttons state.
 btn = Button()
 
 # We need bools to determine current state.
-backupState = false; #If a black line is detected on the light sensor, this is the backup state
+backupState = False; #If a black line is detected on the light sensor, this is the backup state
 
 # Define some contants that we shouldn't change in the program
-CIRCLE_DIAMETER = 300
+CIRCLE_DIAMETER = 800
 REDETECT_TIME = 2000
-BLACK_LINE_VALUE = 30
+BLACK_LINE_VALUE = 50
 
 
 def turn(dir, speed, runtime):
@@ -73,10 +72,10 @@ def forward(speed, bias, biasDir):
 	The bias is simply added to the speed for the current biasDirection
 	"""
 	# todo: check directions for me please
-	if biasDirection == 1:
+	if biasDir == 1:
                 rightMotor.run_direct(duty_cycle_sp=speed+bias)
                 leftMotor.run_direct(duty_cycle_sp=speed)
-        elif biasDirection == -1:
+        elif biasDir == -1:
                 rightMotor.run_direct(duty_cycle_sp=speed)
                 leftMotor.run_direct(duty_cycle_sp=speed+bias)
         else:
@@ -120,9 +119,8 @@ def backup():
 
 	
 # Run the robot until a button is pressed.
-start()
-sleep(3000);
-frontMotor.run_direct(duty_cycle_sp=75) # change duty cycle for more fun :)
+#sleep(3000);
+frontMotor.run_direct(duty_cycle_sp=100) # change duty cycle for more fun :)
 while not btn.any():
         """
         Purpose of this is to test a mockup of the random direction sumo.
@@ -130,9 +128,9 @@ while not btn.any():
         
         while not backupState and not btn.any():
                 # Main sequence that will run until either backupState changes or a botton is pressed
-                if ls.value() < BLACK_LINE_VALUE:
+                if lis.value() < BLACK_LINE_VALUE:
                         # Our light sensor detects we're on black, we need to backup now!
-                        backupState = true
+                        backupState = True
                 
         if backupState:
                 # If we exited main sequence due to a state change, complete the backup
@@ -142,10 +140,10 @@ while not btn.any():
                 randTime = randint(250,1000)
                 turn(randDir, 75, randTime)
                 while any(m.state for m in (leftMotor, rightMotor)):
-                        sleep(randTime/10)
+                        sleep((randTime/1000)/10)
                 # Charge!
                 forward(75,0,0)
-                backupState = false
+                backupState = False
 
 # Stop the motors before exiting.
 rightMotor.stop()

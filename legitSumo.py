@@ -39,7 +39,7 @@ frontMotor = LargeMotor(OUTPUT_C)
 #ts4 = TouchSensor(INPUT_4);	assert ts4.connected
 us = UltrasonicSensor(); assert us.connected
 gs = GyroSensor(); assert gs.connected
-ls = LightSensor(); assert ls.connected #check name of light sensor class
+ls = LightSensor(); assert ls.connected
 
 gs.mode = 'GYRO-ANG'
 
