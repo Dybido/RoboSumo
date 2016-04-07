@@ -73,10 +73,10 @@ def forward(speed, bias, biasDir):
 	The bias is simply added to the speed for the current biasDirection
 	"""
 	# todo: check directions for me please
-	if biasDirection = 1:
+	if biasDirection == 1:
                 rightMotor.run_direct(duty_cycle_sp=speed+bias)
                 leftMotor.run_direct(duty_cycle_sp=speed)
-        elif biasDirection = -1:
+        elif biasDirection == -1:
                 rightMotor.run_direct(duty_cycle_sp=speed)
                 leftMotor.run_direct(duty_cycle_sp=speed+bias)
         else:
@@ -128,7 +128,7 @@ while not btn.any():
         Purpose of this is to test a mockup of the random direction sumo.
         """
         
-        while not backupState & not btn.any():
+        while not backupState and not btn.any():
                 # Main sequence that will run until either backupState changes or a botton is pressed
                 if ls.value() < BLACK_LINE_VALUE:
                         # Our light sensor detects we're on black, we need to backup now!
