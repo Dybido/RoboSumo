@@ -32,14 +32,14 @@ from ev3dev.auto import *
 #Connect motors
 rightMotor = LargeMotor(OUTPUT_A)
 leftMotor  = LargeMotor(OUTPUT_D)
-frontMotor = LargeMotor(OUTPUT_C)
+frontMotor = MediumMotor(OUTPUT_C)
 
-# Connect touch sensors.
+# Connect sensors.
 #ts1 = TouchSensor(INPUT_1);	assert ts1.connected
 #ts4 = TouchSensor(INPUT_4);	assert ts4.connected
 us = UltrasonicSensor(); assert us.connected
 gs = GyroSensor(); assert gs.connected
-ls = LightSensor(); assert ls.connected
+ls = ColorSensor(); assert ls.connected #check name of light sensor class
 
 gs.mode = 'GYRO-ANG'
 
@@ -47,14 +47,14 @@ gs.mode = 'GYRO-ANG'
 btn = Button()
 
 # We need bools to determine current state.
-backupState = false; #If a black line is detected on the light sensor, this is the backup state
-turnState = false; #If no robot is detected, this is the turn until found on ultrasonic state
-moveState = false; #If ultrasonic is detected within a distance, this is the moving forward state
+backupState = False; #If a black line is detected on the light sensor, this is the backup state
+turnState = False; #If no robot is detected, this is the turn until found on ultrasonic state
+moveState = False; #If ultrasonic is detected within a distance, this is the moving forward state
 
 # Define some contants that we shouldn't change in the program
-CIRCLE_DIAMETER = 300
+CIRCLE_DIAMETER = 800
 REDETECT_TIME = 2000
-BLACK_LINE_VALUE = 30
+BLACK_LINE_VALUE = 18
 
 
 def turn(dir, speed):
@@ -141,9 +141,9 @@ while not btn.any():
         """
         moveAngle = 0
         moveTime = 0
-        stateChange = false #todo: test if we need this. Program SHOULD work without it,
+        stateChange = False #todo: test if we need this. Program SHOULD work without it,
                             #but nonetheless, the motors might bug out if forward/turn is contantly called??
-        turnState = true # Initially we want to go into a turning state
+        turnState = True # Initially we want to go into a turning state
         
         while not backupState and not btn.any():
                 # Main sequence that will run until either backupState changes or a botton is pressed
@@ -152,23 +152,23 @@ while not btn.any():
                 # First lets determine if we need to make state changes
                 if us.value() < CIRCLE_DIAMETER:
                         # Robot detected
-                        moveState = true
-                        turnState = false
+                        moveState = True
+                        turnState = False
                         # Record some values for later use of when we first saw the robot
                         moveAngle = gs.value() # Record gyro angle for sick trig/checking
                         moveTime = time()*1000 + REDETECT_TIME # Record some sort of time... to start our full rotation again
                 else:
                         # Robot has been lost OR robot simply not detected
                         # In our action we'll have to determine what's happening
-                        turnState = true
+                        turnState = True
 
                 if time()*1000 > moveTime:
                         # Our time to redetect has lapsed, go to pure detection mode
-                        moveState = false
+                        moveState = False
 
                 if ls.value() < BLACK_LINE_VALUE:
                         # Our light sensor detects we're on black, we need to backup now!
-                        backupState = true
+                        backupState = True
 
 
                 # Do our actions
@@ -194,7 +194,7 @@ while not btn.any():
         if backupState:
                 # If we exited main sequence due to a state change, complete the backup
                 backup()
-                backupState = false
+                backupState = False
 
 # Stop the motors before exiting.
 rightMotor.stop()
