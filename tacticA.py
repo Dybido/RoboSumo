@@ -22,6 +22,7 @@
 # -----------------------------------------------------------------------------
 
 from time   import sleep, time
+from random import randint, randrange
 import sys, os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -54,6 +55,7 @@ moveState = False; #If ultrasonic is detected within a distance, this is the mov
 CIRCLE_DIAMETER = 800
 REDETECT_TIME = 2000
 BLACK_LINE_VALUE = 18
+DETECT_DIST = 50 #50mm
 
 
 def turn(dir, speed):
@@ -106,7 +108,7 @@ def backup():
 	# until both motors are stopped before continuing.
 	stop()
 	rightMotor.run_timed(duty_cycle_sp=-75, time_sp=750)
-	leftMotor.run_timed(duty_cycle_sp=-575, time_sp=750)
+	leftMotor.run_timed(duty_cycle_sp=-75, time_sp=750)
 
 	# When motor is stopped, its `state` attribute returns empty list.
 	# Wait until both motors are stopped:
@@ -119,8 +121,7 @@ def backup():
 
 	
 # Run the robot until a button is pressed.
-start()
-sleep(3000);
+sleep(3000)
 frontMotor.run_direct(duty_cycle_sp=75) # change duty cycle for more fun :)
 while not btn.any():
         """
@@ -144,48 +145,49 @@ while not btn.any():
                             #but nonetheless, the motors might bug out if forward/turn is contantly called??
         turnState = True # Initially we want to go into a turning state
         
-        while not backupState and not btn.any():
+        while not backupState:
                 # Main sequence that will run until either backupState changes or a botton is pressed
-
-                
-                # First lets determine if we need to make state changes
-                if us.value() < CIRCLE_DIAMETER:
-                        # Robot detected
-                        moveState = True
-                        turnState = False
-                        # Record some values for later use of when we first saw the robot
-                        moveAngle = gs.value() # Record gyro angle for sick trig/checking
-                        moveTime = time()*1000 + REDETECT_TIME # Record some sort of time... to start our full rotation again
+                if ls.value() < BLACK_LINE_VALUE:
+                    # Our light sensor detects we're on black, we need to backup now!
+                    backupState = True
+                elif us.value() < DETECT_DIST: # First lets determine if we need to make state changes
+                    # Robot detected
+                    moveState = True
+                    turnState = False
+                    # Record some values for later use of when we first saw the robot
+                    #moveAngle = gs.value() # Record gyro angle for sick trig/checking
+                    moveTime = time()*1000 + REDETECT_TIME # Record some sort of time... to start our full rotation again
                 else:
-                        # Robot has been lost OR robot simply not detected
-                        # In our action we'll have to determine what's happening
-                        turnState = True
+                    # Robot has been lost OR robot simply not detected
+                    # In our action we'll have to determine what's happening
+                    turnState = True
 
+                """    
                 if time()*1000 > moveTime:
                         # Our time to redetect has lapsed, go to pure detection mode
                         moveState = False
-
-                if ls.value() < BLACK_LINE_VALUE:
-                        # Our light sensor detects we're on black, we need to backup now!
-                        backupState = True
-
-
+                """
                 # Do our actions
                 if moveState & turnState:
                         # This should mean we've just lost the robot,
                         # the best case is to hope to redetect by turning in the same? or opposite? direction we turned before
                         # Currently this is set to move slightly in the opposite direction
-                        if moveAngle < gs.value(): # todo: check directions here again
-                                forward(50,25,1)
-                        else:
-                                forward(50,25,-1)
+                    randDir = randrange(-1,2,2)
+                    randTime = randint(250,1000)
+                    turn(randDir, 75, randTime)
+                    while any(m.state for m in (leftMotor, rightMotor)):
+                        sleep((randTime/1000)) #seconds
+                    # Charge!
+                    forward(75, 0, 0)
                 elif moveState:
-                        # Should mean we've detect the robot, charge forward!
-                        foward(75,0,0)
+                    # Should mean we've detect the robot, charge forward!                    
+                    forward(75, 0, 0)
                 elif turnState:
-                        # Should mean robot hasn't been detected and we've gone past any attempted redetection time
-                        # turn in an anticlockwise? todo: figure out if there is a better way to judge which way to turn
-                        turn(1, 75) #todo: check this whole thing and its direction
+                    # Should mean robot hasn't been detected and we've gone past any attempted redetection time
+                    # turn in an anticlockwise? todo: figure out if there is a better way to judge which way to turn
+                    randDir = randrange(-1,2,2)
+                    randTime = randint(250,1000)
+                    turn(randDir, 75, randTime)                        
                 else:
                         # Neither state is set, this should never happen
                         print "What hath happened"
@@ -193,8 +195,15 @@ while not btn.any():
         if backupState:
                 # If we exited main sequence due to a state change, complete the backup
                 backup()
+                randDir = randrange(-1,2,2)
+                randTime = randint(250,1000)
+                turn(randDir, 75, randTime)
+                while any(m.state for m in (leftMotor, rightMotor)):
+                        sleep((randTime/1000)) #seconds
+                # Charge!
+                forward(75,0,0)
                 backupState = False
-
+                    
 # Stop the motors before exiting.
 rightMotor.stop()
 leftMotor.stop()
