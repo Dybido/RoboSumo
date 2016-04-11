@@ -52,7 +52,7 @@ backupState = False; #If a black line is detected on the light sensor, this is t
 # Define some contants that we shouldn't change in the program
 CIRCLE_DIAMETER = 800
 REDETECT_TIME = 2000
-BLACK_LINE_VALUE = 18
+BLACK_LINE_VALUE = 20
 
 
 def turn(dir, speed, runtime):

@@ -1,4 +1,5 @@
 #!/usr/bin/python
+
 # -----------------------------------------------------------------------------
 # Copyright (c) 2015 Denis Demidov <dennis.demidov@gmail.com>
 #
@@ -41,6 +42,7 @@ gs = GyroSensor(); assert gs.connected
 ls = ColorSensor(); assert ls.connected #check name of light sensor class
 
 gs.mode = 'GYRO-ANG'
+#us.mode = 'US-DIST-CM'
 
 # We will need to check EV3 buttons state.
 btn = Button()
@@ -51,9 +53,10 @@ turnState = False; #If no robot is detected, this is the turn until found on ult
 moveState = False; #If ultrasonic is detected within a distance, this is the moving forward state
 
 # Define some contants that we shouldn't change in the program
-CIRCLE_DIAMETER = 800
-REDETECT_TIME = 2000
-BLACK_LINE_VALUE = 18
+ROBOT_CHASE_DISTANCE = 500 #mm
+REDETECT_TIME = 2000 #milliseconds
+TURN_TIME = 2000
+BLACK_LINE_VALUE = 20 #ls reflected light
 
 
 def turn(dir, speed):
@@ -72,10 +75,10 @@ def forward(speed, bias, biasDir):
 	The bias is simply added to the speed for the current biasDirection
 	"""
 	# todo: check directions for me please
-	if biasDirection == 1:
+	if biasDir == 1:
                 rightMotor.run_direct(duty_cycle_sp=speed+bias)
                 leftMotor.run_direct(duty_cycle_sp=speed)
-        elif biasDirection == -1:
+        elif biasDir == -1:
                 rightMotor.run_direct(duty_cycle_sp=speed)
                 leftMotor.run_direct(duty_cycle_sp=speed+bias)
         else:
@@ -106,7 +109,7 @@ def backup():
 	# until both motors are stopped before continuing.
 	stop()
 	rightMotor.run_timed(duty_cycle_sp=-75, time_sp=750)
-	leftMotor.run_timed(duty_cycle_sp=-575, time_sp=750)
+	leftMotor.run_timed(duty_cycle_sp=-75, time_sp=750)
 
 	# When motor is stopped, its `state` attribute returns empty list.
 	# Wait until both motors are stopped:
@@ -119,8 +122,7 @@ def backup():
 
 	
 # Run the robot until a button is pressed.
-start()
-sleep(3000);
+sleep(3)
 frontMotor.run_direct(duty_cycle_sp=75) # change duty cycle for more fun :)
 while not btn.any():
         """
@@ -140,16 +142,18 @@ while not btn.any():
         """
         moveAngle = 0
         moveTime = 0
+        turnTime = 0
         stateChange = False #todo: test if we need this. Program SHOULD work without it,
                             #but nonetheless, the motors might bug out if forward/turn is contantly called??
         turnState = True # Initially we want to go into a turning state
+        moveState = False
         
         while not backupState and not btn.any():
                 # Main sequence that will run until either backupState changes or a botton is pressed
-
+                #print 'us: ', us.value()
                 
                 # First lets determine if we need to make state changes
-                if us.value() < CIRCLE_DIAMETER:
+                if us.value() < ROBOT_CHASE_DISTANCE:
                         # Robot detected
                         moveState = True
                         turnState = False
@@ -159,7 +163,12 @@ while not btn.any():
                 else:
                         # Robot has been lost OR robot simply not detected
                         # In our action we'll have to determine what's happening
+                        if(turnState == False):
+                               turnTime = time()*1000 + TURN_TIME
+                        if(time()*1000 > turnTime):
+                                moveState = True
                         turnState = True
+                        
 
                 if time()*1000 > moveTime:
                         # Our time to redetect has lapsed, go to pure detection mode
@@ -181,11 +190,11 @@ while not btn.any():
                                 forward(50,25,-1)
                 elif moveState:
                         # Should mean we've detect the robot, charge forward!
-                        foward(75,0,0)
+                        forward(75,0,0)
                 elif turnState:
                         # Should mean robot hasn't been detected and we've gone past any attempted redetection time
                         # turn in an anticlockwise? todo: figure out if there is a better way to judge which way to turn
-                        turn(1, 75) #todo: check this whole thing and its direction
+                        turn(1, 50) #todo: check this whole thing and its direction
                 else:
                         # Neither state is set, this should never happen
                         print "What hath happened"

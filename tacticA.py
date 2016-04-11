@@ -55,15 +55,15 @@ moveState = False; #If ultrasonic is detected within a distance, this is the mov
 CIRCLE_DIAMETER = 800
 REDETECT_TIME = 2000
 BLACK_LINE_VALUE = 18
-DETECT_DIST = 50 #50mm
+DETECT_DIST = 150 #50mm
 
 
-def turn(dir, speed):
+def turn(dir, speed, runtime):
 	"""
 	Turn in the specified direction at the specified speed. Doesn't stop until told to stop.
 	"""
-	rightMotor.run_direct(duty_cycle_sp=-dir*speed)
-	leftMotor.run_direct(duty_cycle_sp=dir*speed)
+	rightMotor.run_timed(duty_cycle_sp=-dir*speed, time_sp=runtime)
+	leftMotor.run_timed(duty_cycle_sp=dir*speed, time_sp=runtime)
 
 def forward(speed, bias, biasDir):
 	"""
@@ -74,10 +74,10 @@ def forward(speed, bias, biasDir):
 	The bias is simply added to the speed for the current biasDirection
 	"""
 	# todo: check directions for me please
-	if biasDirection == 1:
+	if biasDir == 1:
                 rightMotor.run_direct(duty_cycle_sp=speed+bias)
                 leftMotor.run_direct(duty_cycle_sp=speed)
-        elif biasDirection == -1:
+        elif biasDir == -1:
                 rightMotor.run_direct(duty_cycle_sp=speed)
                 leftMotor.run_direct(duty_cycle_sp=speed+bias)
         else:
@@ -121,7 +121,7 @@ def backup():
 
 	
 # Run the robot until a button is pressed.
-sleep(3000)
+sleep(3)
 frontMotor.run_direct(duty_cycle_sp=75) # change duty cycle for more fun :)
 while not btn.any():
         """
@@ -146,6 +146,7 @@ while not btn.any():
         turnState = True # Initially we want to go into a turning state
         
         while not backupState:
+                print us.value()
                 # Main sequence that will run until either backupState changes or a botton is pressed
                 if ls.value() < BLACK_LINE_VALUE:
                     # Our light sensor detects we're on black, we need to backup now!
@@ -161,6 +162,7 @@ while not btn.any():
                     # Robot has been lost OR robot simply not detected
                     # In our action we'll have to determine what's happening
                     turnState = True
+                    moveState = True
 
                 """    
                 if time()*1000 > moveTime:
@@ -175,7 +177,9 @@ while not btn.any():
                     randDir = randrange(-1,2,2)
                     randTime = randint(250,1000)
                     turn(randDir, 75, randTime)
+                    print "a: ", randTime
                     while any(m.state for m in (leftMotor, rightMotor)):
+                        print "b"
                         sleep((randTime/1000)) #seconds
                     # Charge!
                     forward(75, 0, 0)
@@ -187,7 +191,8 @@ while not btn.any():
                     # turn in an anticlockwise? todo: figure out if there is a better way to judge which way to turn
                     randDir = randrange(-1,2,2)
                     randTime = randint(250,1000)
-                    turn(randDir, 75, randTime)                        
+                    turn(randDir, 75, randTime)
+                    print "c"
                 else:
                         # Neither state is set, this should never happen
                         print "What hath happened"
