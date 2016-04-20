@@ -1,4 +1,5 @@
 #!/usr/bin/python
+
 # -----------------------------------------------------------------------------
 # Copyright (c) 2015 Denis Demidov <dennis.demidov@gmail.com>
 #
@@ -20,9 +21,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 # -----------------------------------------------------------------------------
+print 'check'
 
 from time   import sleep, time
-from random import randint, randrange
 import sys, os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -35,33 +36,32 @@ leftMotor  = LargeMotor(OUTPUT_D)
 frontMotor = MediumMotor(OUTPUT_C)
 
 # Connect sensors.
-#ts1 = TouchSensor(INPUT_1);	assert ts1.connected
-#ts4 = TouchSensor(INPUT_4);	assert ts4.connected
 us = UltrasonicSensor(); assert us.connected
 #gs = GyroSensor(); assert gs.connected
 ls = ColorSensor(); assert ls.connected
 
 #gs.mode = 'GYRO-ANG'
+#us.mode = 'US-DIST-CM'
 
 # We will need to check EV3 buttons state.
 btn = Button()
 
-# We need bools to determine current state.
-backupState = False; #If a black line is detected on the light sensor, this is the backup state
+backupState = False
 
 # Define some contants that we shouldn't change in the program
-CIRCLE_DIAMETER = 800
-REDETECT_TIME = 2000
-BLACK_LINE_VALUE = 20
+ROBOT_CHASE_DISTANCE = 325 #mm
+ROBOT_FULL_DISTANCE = 150
+REDETECT_TIME = 2000 #milliseconds
+TURN_TIME = 2000
+BLACK_LINE_VALUE = 21 #ls reflected light
 
 
-def turn(dir, speed, runtime):
+def turn(dir, speed):
 	"""
-	Turn in the specified direction for a time
-	at the specified speed.
+	Turn in the specified direction at the specified speed. Doesn't stop until told to stop.
 	"""
-	rightMotor.run_timed(duty_cycle_sp=-dir*speed, time_sp=runtime)
-	leftMotor.run_timed(duty_cycle_sp=dir*speed, time_sp=runtime)
+	rightMotor.run_direct(duty_cycle_sp=-dir*speed)
+	leftMotor.run_direct(duty_cycle_sp=dir*speed)
 
 def forward(speed, bias, biasDir):
 	"""
@@ -87,7 +87,7 @@ def stop():
         Stop both motors.
         """
         rightMotor.stop(stop_command='brake')
-	leftMotor.stop(stop_command='brake')
+        leftMotor.stop(stop_command='brake')
 
 def backup():
 	"""
@@ -117,7 +117,7 @@ def backup():
 	Leds.set_color(Leds.RIGHT, Leds.GREEN)
 	Leds.set_color(Leds.LEFT, Leds.GREEN)
 
-	
+
 # Run the robot until a button is pressed.
 print 'start'
 while not btn.any():
@@ -126,30 +126,38 @@ print 'set'
 sleep(3)
 print 'go'
 frontMotor.run_direct(duty_cycle_sp=75) # change duty cycle for more fun :)
-forward(75,0,0)
 while not btn.any():
-        """
-        Purpose of this is to test a mockup of the random direction sumo.
-        """
-        
-        while not backupState and not btn.any():
-                # Main sequence that will run until either backupState changes or a botton is pressed
-                if ls.value() < BLACK_LINE_VALUE:
-                        # Our light sensor detects we're on black, we need to backup now!
-                        backupState = True
-                
-        if backupState:
-                # If we exited main sequence due to a state change, complete the backup
-                backup()
-                # Turn a random direction
-                randDir = randrange(-1,2,2)
-                randTime = randint(250,1000)
-                turn(randDir, 75, randTime)
-                while any(m.state for m in (leftMotor, rightMotor)):
-                        sleep((randTime/1000)) #seconds
-                # Charge!
-                forward(75,0,0)
-                backupState = False
+    """
+    We also have a backupState which override everything, and this is only called if we have about to pass over a line
+    """
+    while not backupState and not btn.any():
+        # Main sequence that will run until either backupState changes or a botton is pressed
+        #print 'us: ', us.value()
+
+        # First lets determine if we need to make state changes
+        distance = us.value()
+        if distance < ROBOT_CHASE_DISTANCE:
+            # Robot detected
+            if distance < ROBOT_FULL_DISTANCE:
+                #max speed or not
+                forward(100,0,0)
+            else:
+                forward(50,0,0)
+
+        else:
+            # Robot has been lost OR robot simply not detected
+            turn(1,50)
+
+
+        if ls.value() < BLACK_LINE_VALUE:
+            # Our light sensor detects we're on black, we need to backup now!
+            backupState = True
+
+
+    if backupState:
+        # If we exited main sequence due to a state change, complete the backup
+        backup()
+        backupState = False
 
 # Stop the motors before exiting.
 rightMotor.stop()
