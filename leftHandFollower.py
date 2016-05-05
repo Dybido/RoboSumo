@@ -196,15 +196,32 @@ try:
 		print "front ", front_dist
 
 		if hasFront(front_dist) and not hasLeft(left_dist): #MOVE FORWARD
-			print front_dist
+			#print front_dist
 			#while detectFront() >= MIN_DIST or not hasRight(left_dist):
 			#forwardMonitor(forwardAngle%360, 50)
 			moveFoward(47,47)
+			direction = gyroValue();
+			print "gyrovalue: ", (direction-5)%360, forwardAngle
+
+			"""if (direction-5)%360 > (forwardAngle):
+				# print('right')
+				rightMotor.duty_cycle_sp = 40
+				print "right", rightMotor.duty_cycle_sp
+			elif (direction+5)%360 < (forwardAngle):
+				# print('left')
+				leftMotor.duty_cycle_sp = 40
+				print "left", leftMotor.duty_cycle_sp
+			else:
+				print "correct"
+				pass
+				#moveFoward(47,47)"""
+			
 		elif not hasFront(front_dist) and hasLeft(left_dist): #MOVE LEFT
 			print "turns right 1"
+			forwardAngle-=90
 			#moveTurn(90, 50, [leftMotor, rightMotor])
-			leftMotor.run_to_rel_pos(position_sp=245, stop_command="brake")
-			rightMotor.run_to_rel_pos(position_sp=-245, stop_command="brake")
+			leftMotor.run_to_rel_pos(position_sp=225, stop_command="brake")
+			rightMotor.run_to_rel_pos(position_sp=-225, stop_command="brake")
 			while any(m.state for m in (leftMotor, rightMotor)):
 				sleep(0.1)
 			moveFoward(47,47)
@@ -212,15 +229,17 @@ try:
 			#stepForward(_DISTANCE_BETWEEN_WALLS, 50) #Move forward enough to prevent turning on the spot.
 		elif hasFront(front_dist) and hasLeft(left_dist): #Choice of forward & right, will turn RIGHT
 			print "turns right 2"
+			forwardAngle-=90
 			#moveTurn(90, 50, [leftMotor, rightMotor])
-			leftMotor.run_to_rel_pos(position_sp=245, stop_command="brake")
-			rightMotor.run_to_rel_pos(position_sp=-245, stop_command="brake")
+			leftMotor.run_to_rel_pos(position_sp=225, stop_command="brake")
+			rightMotor.run_to_rel_pos(position_sp=-225, stop_command="brake")
 			while any(m.state for m in (leftMotor, rightMotor)):
 				sleep(0.1)
 			moveFoward(47,47)
 			sleep(2)
 			#stepForward(_DISTANCE_BETWEEN_WALLS, 50) #Move forward enough to prevent turning on the spot.
 		elif not hasFront(front_dist) and not hasLeft(left_dist): #Rotate 180 degrees and move forward again
+			forwardAngle+=180
 			leftMotor.run_to_rel_pos(position_sp=-480, stop_command="brake")
 			rightMotor.run_to_rel_pos(position_sp=480, stop_command="brake")
 			while any(m.state for m in (leftMotor, rightMotor)):
@@ -266,4 +285,4 @@ finally:
 
 rightMotor.stop()
 leftMotor.stop()
-sensorMotor.stop()	
+sensorMotor.stop()
