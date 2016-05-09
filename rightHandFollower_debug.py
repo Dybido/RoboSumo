@@ -4,7 +4,7 @@
 #Possible 4 way intersections
 #Probably right angled walls.
 
-_DISTANCE_BETWEEN_WALLS = 290 #mm
+_DISTANCE_BETWEEN_WALLS = 20 #cm
 _WALL_HEIGHT = 29 #cm
 _ERROR_BOUNDS_GS = 5 #degrees
 _ERROR_BOUNDS_US = 2 #cm
@@ -59,12 +59,10 @@ def getTurnRecalibration():
 def stepForward(distance, speed):
 	currentDist = us.value()
 	finishedDist = currentDist - distance
-	print "currentDist ", currentDist
 	#move until we get to the distance we want
 	while(us.value() < finishedDist - _ERROR_BOUNDS_US or us.value() > finishedDist + _ERROR_BOUNDS_GS):
 		speedlft = speed
 		speedrgt = speed
-		print "getto ", us.value(), finishedDist
 		"""if(gyroValue() < forwardAngle):
 			speedrgt = (speed/5)*4
 		elif(gyroValue() > forwardAngle):
@@ -123,7 +121,7 @@ def moveTurn(angle, speed, motorList):
 		motor.stop()
 	
 
-def hasLeft(gs_val):
+def hasRight(gs_val):
 	"""
 	Checks if there is a path on the right
 	"""
@@ -141,25 +139,21 @@ def hasFront(gs_val):
 	else:
 		return False
 
-def detectLeft():
+def detectRight():
 	"""
 	Returns the distance value of the right 
 	"""
-	sensorMotor.run_to_abs_pos(position_sp=-90, stop_command="brake")
-	while any(m.state for m in ([sensorMotor])):
-		sleep(0.1)
-	sleep(0.2)
-	left_dist = us.value()
-	return left_dist
+	moveTurn(90, 30, [sensorMotor])
+
+	right_dist = us.value()
+	return right_dist
 
 def detectFront():
 	"""
 	Returns the distance value of the front
 	"""
-	sensorMotor.run_to_abs_pos(position_sp=0, stop_command="brake")
-	while any(m.state for m in ([sensorMotor])):
-		sleep(0.1)
-	sleep(0.2)
+	moveTurn(-90, 30, [sensorMotor])
+
 	front_dist = us.value()
 	return front_dist
 	
@@ -179,9 +173,6 @@ oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
 fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
 forwardAngle = gyroValue() #allow us to monitor the path as we are moving forward
-sensorMotor.duty_cycle_sp = 50
-rightMotor.duty_cycle_sp = 50
-leftMotor.duty_cycle_sp = 50
 try:
 	print "ready!";
 	while not btn.any():
@@ -193,78 +184,28 @@ try:
 		TRUE   TRUE   TURN RIGHT 
 		FALSE  FALSE  TURN RIGHT
 		"""
-		left_dist = detectLeft()
-		front_dist = detectFront()
-		print "right ", left_dist
-		print "front ", front_dist
+		##right_dist = detectRight()
+		##front_dist = detectFront()
 
-		if hasFront(front_dist) and not hasLeft(left_dist): #MOVE FORWARD
-			#print front_dist
-			#while detectFront() >= MIN_DIST or not hasRight(left_dist):
+		"""if hasFront(front_dist) and not hasRight(right_dist): #MOVE FORWARD
+			#while detectFront() >= MIN_DIST or not hasRight(right_dist):
 			#forwardMonitor(forwardAngle%360, 50)
-			
-			moveFoward(47,47)
-			"""currentDir = gyroValue()
-			if(forwardAngle + 5 > 360 || forwardAngle - 5 < 0):
-				#shift angles to work at a better range
-				changedForwardAngle = (forwardAngle-180)%360
-				changedCurrentDir = (currentDir-180)%360
-				
-				if((changedCurrentDir - 5) > changedForwardAngle):
-					# print('right')
-					rightMotor.duty_cycle_sp = 40
-				elif((changedCurrentDir + 5) < changedForwardAngle):
-					leftMotor.duty_cycle_sp = 40
-			else:
-				if((currentDir - 5) > forwardAngle):
-					# print('right')
-					rightMotor.duty_cycle_sp = 40
-				elif((currentDir + 5) < forwardAngle):
-					leftMotor.duty_cycle_sp = 40"""
-			
-			
-			#direction = gyroValue();
-			#print "gyrovalue: ", currentDir, forwardAngle
-			
-		elif not hasFront(front_dist) and hasLeft(left_dist): #MOVE LEFT
-			print "turns right 1"
-			forwardAngle-=90
-			#moveTurn(90, 50, [leftMotor, rightMotor])
-			leftMotor.run_to_rel_pos(position_sp=225, stop_command="brake")
-			rightMotor.run_to_rel_pos(position_sp=-225, stop_command="brake")
-			while any(m.state for m in (leftMotor, rightMotor)):
-				sleep(0.1)
-			moveFoward(47,47)
-			sleep(2)
-			#stepForward(_DISTANCE_BETWEEN_WALLS, 50) #Move forward enough to prevent turning on the spot.
-		elif hasFront(front_dist) and hasLeft(left_dist): #Choice of forward & right, will turn RIGHT
-			print "turns right 2"
-			forwardAngle-=90
-			#moveTurn(90, 50, [leftMotor, rightMotor])
-			leftMotor.run_to_rel_pos(position_sp=225, stop_command="brake")
-			rightMotor.run_to_rel_pos(position_sp=-225, stop_command="brake")
-			while any(m.state for m in (leftMotor, rightMotor)):
-				sleep(0.1)
-			moveFoward(47,47)
-			sleep(2)
-			#stepForward(_DISTANCE_BETWEEN_WALLS, 50) #Move forward enough to prevent turning on the spot.
-		elif not hasFront(front_dist) and not hasLeft(left_dist): #Rotate 180 degrees and move forward again
-			forwardAngle+=180
-			leftMotor.run_to_rel_pos(position_sp=-480, stop_command="brake")
-			rightMotor.run_to_rel_pos(position_sp=480, stop_command="brake")
-			while any(m.state for m in (leftMotor, rightMotor)):
-				sleep(0.1)
+			stepForward(_DISTANCE_BETWEEN_WALLS, 50)
+		elif not hasFront(front_dist) and hasRight(right_dist): #MOVE RIGHT
+			moveTurn(90, 50, [leftMotor, rightMotor])
+			stepForward(_DISTANCE_BETWEEN_WALLS, 50) #Move forward enough to prevent turning on the spot.
+		elif hasFront(front_dist) and hasRight(right_dist): #Choice of forward & right, will turn RIGHT
+			moveTurn(90, 50, [leftMotor, rightMotor])
+			stepForward(_DISTANCE_BETWEEN_WALLS, 50) #Move forward enough to prevent turning on the spot.
+		elif not hasFront(front_dist) and not hasRight(right_dist): #Rotate 180 degrees and move forward again
+			moveTurn(-180, 50, [leftMotor, rightMotor])"""
 		try:
 			c = sys.stdin.read(1)
 			print "Current char", repr(c)
 			#The function tester!
-			if(c == 'c'):
-				Sound.tone([(1000, 500, 500)] * 3)
-				rightMotor.stop()
-				leftMotor.stop()
-				sensorMotor.stop()
-				break
-			"""elif(c == 'a'):
+			if(c == 'w'):
+				moveFoward(50,50)
+			elif(c == 'a'):
 				moveTurn(-90, 50, [leftMotor, rightMotor])
 			elif(c == 'd'):
 				moveTurn(90, 50, [leftMotor, rightMotor])
@@ -295,4 +236,4 @@ finally:
 
 rightMotor.stop()
 leftMotor.stop()
-sensorMotor.stop()
+sensorMotor.stop()	
