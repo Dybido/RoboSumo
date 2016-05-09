@@ -162,7 +162,19 @@ def detectFront():
 	sleep(0.2)
 	front_dist = us.value()
 	return front_dist
-	
+
+def detectSkew(currAngle):
+	if currAngle < forwardAngle :
+		diff = (forwardAngle - currAngle) % 360
+		while diff != 0:
+			moveFoward(55, 47)
+			diff = (forwardAngle - currAngle) % 360
+	else: #currAngle > forwardAngle
+		diff = (currAngle - forwardAngle) % 360
+		while diff != 0:
+			moveFoward(55, 47)
+			diff = (currAngle - forwardAngle) % 360
+		
 			
 #Print sensors		
 def printSensors():
@@ -235,6 +247,8 @@ try:
 			while any(m.state for m in (leftMotor, rightMotor)):
 				sleep(0.1)
 			moveFoward(47,47)
+			currAngle = gyroValue()
+			detectSkew(currAngle)
 			sleep(2)
 			#stepForward(_DISTANCE_BETWEEN_WALLS, 50) #Move forward enough to prevent turning on the spot.
 		elif hasFront(front_dist) and hasLeft(left_dist): #Choice of forward & right, will turn RIGHT
@@ -246,6 +260,8 @@ try:
 			while any(m.state for m in (leftMotor, rightMotor)):
 				sleep(0.1)
 			moveFoward(47,47)
+			currAngle = gyroValue()
+			detectSkew(currAngle)
 			sleep(2)
 			#stepForward(_DISTANCE_BETWEEN_WALLS, 50) #Move forward enough to prevent turning on the spot.
 		elif not hasFront(front_dist) and not hasLeft(left_dist): #Rotate 180 degrees and move forward again
