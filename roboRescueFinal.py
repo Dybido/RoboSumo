@@ -37,20 +37,20 @@ btn = Button()
 nodeID = 0
 nodeList = []
 class PathNode():
-    def __init__(self, parentID, dir):
+	def __init__(self, parentID, dir):
 		global nodeID
-        self.ID = nodeID
-		nodeID++
+		self.ID = nodeID
+		nodeID += 1
 		self.parentID = parentID
 		self.directionAngle = dir
-    ID = -1
+	ID = -1
 	parentID = -1
 	directionAngle = 0
 	
     #children = []
 	visited = False
 
-
+	
 #Simply to mod gyro value
 def gyroValue():
 	return gs.value()%360
@@ -69,17 +69,18 @@ def rotateRobot(inAngle, speed):
 	
 	rotateAmount = 205/90
 	rotateError = 3 #degrees
+	driftFactor = 1 #degrees
 	currentGyro = gyroValue()
 	
+	forwardAngle -= driftFactor
+	
 	angle = (forwardAngle-currentGyro)%360
-	if(inAngle < 0):
-		angle *= -1
+	"""if(inAngle < 0):
+		angle = 0-(360-angle);"""
 	print "Start: ", forwardAngle, currentGyro, angle
 
 	leftMotor.duty_cycle_sp = speed
 	rightMotor.duty_cycle_sp = speed
-	
-	
 	
 	leftMotor.run_to_rel_pos(position_sp=angle*rotateAmount, stop_command="brake")
 	rightMotor.run_to_rel_pos(position_sp=-angle*rotateAmount, stop_command="brake")
@@ -93,6 +94,8 @@ def rotateRobot(inAngle, speed):
 		print " "
 		print "AngleWant: ", angleWant
 		print "AngleHave: ", angleHave
+		leftMotor.duty_cycle_sp = speed/2
+		rightMotor.duty_cycle_sp = speed/2
 		leftMotor.run_to_rel_pos(position_sp=angleDifference*rotateAmount, stop_command="brake")
 		rightMotor.run_to_rel_pos(position_sp=-angleDifference*rotateAmount, stop_command="brake")
 		angleHave = gyroValue()
@@ -134,6 +137,22 @@ def detectDistance(abs_angle):
 	left_dist = us.value()
 	return left_dist
 	
+def detectSkew(currAngle):
+	forwardAng = forwardAngle%360
+	if currAngle < forwardAng:
+		diff = (forwardAng - currAngle)
+		while not (diff >= 0 and diff <= _ERROR_BOUNDS_GS):
+			print "right", forwardAngle, currAngle
+			moveFoward(55, 30)
+			diff = (forwardAng - currAngle) 
+			currAngle = gyroValue()
+	else: #currAngle > forwardAngle
+		diff = (currAngle - forwardAng) 
+		while not (diff >= 0 and diff <= _ERROR_BOUNDS_GS):
+			print "left", forwardAngle, currAngle
+			moveFoward(30, 55)
+			diff = (currAngle - forwardAng) 
+			currAngle = gyroValue()
 			
 #Print sensors		
 def printSensors():
@@ -153,11 +172,20 @@ sensorMotor.duty_cycle_sp = 50
 rightMotor.duty_cycle_sp = 50
 leftMotor.duty_cycle_sp = 50
 forwardAngle = gyroValue() #allow us to monitor the path as we are moving forward
+print "starter: ", forwardAngle
+#start calibration mode to sit and recal gyro()
+
 #Create our initial path
-currentPath = PathNode(-1);
-nodeList.append(currentPath);
+currentPath = PathNode(-1, 0)
+nodeList.append(currentPath)
 try:
-	print "ready!";
+	i = 0
+	while(i < 5):
+		forwardAngle = gyroValue()
+		print "starter2: ", forwardAngle
+		sleep(0.2)
+		i = i+1
+	print "ready!"
 	while not btn.any():
 		"""
 		Run a thread for detecting left front and right.
@@ -183,7 +211,7 @@ try:
 		"""
 		
 		#Run sensorThread()
-		sensorThread();
+		"""sensorThread();
 		
 		#Get values out of sensorThread specifying if theres walls or not
 		if(((hasLeft or hasRight) and hasFront) or (hasLeft and hasRight)):
@@ -231,6 +259,7 @@ try:
 				sleep(0.1)
 			moveFoward(47,47)
 			sleep(2)"""
+		detectSkew(gyroValue())
 		try:
 			c = sys.stdin.read(1)
 			print "Current char", repr(c)
@@ -246,6 +275,8 @@ try:
 				rotateRobot(90, 50)
 			elif(c == 's'):
 				rotateRobot(180, 50)
+			elif(c == 'w'):
+				moveFoward(50,50)
 				
 		#printSensors()"""
 			
