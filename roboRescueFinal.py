@@ -34,59 +34,80 @@ gs.mode = 'GYRO-ANG'
 btn = Button()
 
 #intersection
-
+nodeID = 0
+nodeList = []
+class PathNode():
+    def __init__(self, parentID, dir):
+		global nodeID
+        self.ID = nodeID
+		nodeID++
+		self.parentID = parentID
+		self.directionAngle = dir
+    ID = -1
+	parentID = -1
+	directionAngle = 0
+	
+    #children = []
+	visited = False
 
 
 #Simply to mod gyro value
 def gyroValue():
 	return gs.value()%360
 
-#Function to reset the pivot on the top of the robot
-#Must have an angle to reset to
-def resetPivot(resetAngle):
-	pass
-
 #Function to move forward continuously
 #Requires speed for both wheels
 def moveFoward(lft, rgt):
 	rightMotor.run_direct(duty_cycle_sp=rgt)
 	leftMotor.run_direct(duty_cycle_sp=lft)
-	
-#Monitors and corrects the forward movement to stay on the same forward direction
-#Requires a direction relative to the beginning of the program and speed to adhere to
-def forwardMonitor(forwardAngle, speed):
-	if(gyroValue() < forwardAngle):
-		moveFoward(speed, (speed/5)*4)
-	elif(gyroValue() > forwardAngle):
-		moveFoward((speed/5)*4, speed)
 
-#Function to turn a specific angle
-#Must have an angle in degrees, a valid gyro and speed
-def moveTurn(angle, speed, motorList):
+#Function to turn based on globalAngle
+#needs a valid gyro, left and right motors and speed
+def rotateRobot(inAngle, speed):
 	global forwardAngle
-	forwardAngle += angle
-	forwardAngle = forwardAngle%360
-	currentAngle = gyroValue()
-	print "current angle:", currentAngle
-	finishedAngle = (currentAngle + angle)%360
-	#turn until we get to the angle we want
-	while(gyroValue() < finishedAngle - _ERROR_BOUNDS_GS or gyroValue() > finishedAngle + _ERROR_BOUNDS_GS):
-		#TODO check logic
-		print gyroValue(), " ", finishedAngle
-		for motor in motorList:
-			if(angle < 0):
-				#TODO check direction
-				motor.run_direct(duty_cycle_sp=speed*-1)
-			elif (angle > 0):
-				#TODO check direction
-				motor.run_direct(duty_cycle_sp=speed*1)
-	print "finished angle", gyroValue()
-	for motor in motorList:
-		motor.stop()
+	forwardAngle += inAngle
+	
+	rotateAmount = 205/90
+	rotateError = 3 #degrees
+	currentGyro = gyroValue()
+	
+	angle = (forwardAngle-currentGyro)%360
+	if(inAngle < 0):
+		angle *= -1
+	print "Start: ", forwardAngle, currentGyro, angle
+
+	leftMotor.duty_cycle_sp = speed
+	rightMotor.duty_cycle_sp = speed
 	
 	
+	
+	leftMotor.run_to_rel_pos(position_sp=angle*rotateAmount, stop_command="brake")
+	rightMotor.run_to_rel_pos(position_sp=-angle*rotateAmount, stop_command="brake")
+	while any(m.state for m in (leftMotor, rightMotor)):
+		sleep(0.1)
+		
+	angleWant = (currentGyro+angle)%360
+	angleHave = gyroValue()
+	while((angleWant < angleHave - rotateError) or (angleWant > angleHave + rotateError)):
+		angleDifference = angleWant-angleHave
+		print " "
+		print "AngleWant: ", angleWant
+		print "AngleHave: ", angleHave
+		leftMotor.run_to_rel_pos(position_sp=angleDifference*rotateAmount, stop_command="brake")
+		rightMotor.run_to_rel_pos(position_sp=-angleDifference*rotateAmount, stop_command="brake")
+		angleHave = gyroValue()
+	
+	print "Accuracy: ", currentGyro+angle, gyroValue()
+	
+	
+hasLeft = 0
+hasFront = 1
+hasRight = 0
 def sensorThread():
 	"""Checks values on each side for intersections"""
+	global hasLeft
+	global hasFront
+	global hasRight
 	#TODO: sensor class to store values? or join
 	hasLeft = hasNoWall(detectDistance(-90))
 	hasFront = hasNoWall(detectDistance(0))
@@ -128,10 +149,13 @@ termios.tcsetattr(fd, termios.TCSANOW, newattr)
 oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
 fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
-forwardAngle = gyroValue() #allow us to monitor the path as we are moving forward
 sensorMotor.duty_cycle_sp = 50
 rightMotor.duty_cycle_sp = 50
 leftMotor.duty_cycle_sp = 50
+forwardAngle = gyroValue() #allow us to monitor the path as we are moving forward
+#Create our initial path
+currentPath = PathNode(-1);
+nodeList.append(currentPath);
 try:
 	print "ready!";
 	while not btn.any():
@@ -159,13 +183,40 @@ try:
 		"""
 		
 		#Run sensorThread()
-
+		sensorThread();
+		
 		#Get values out of sensorThread specifying if theres walls or not
 		if(((hasLeft or hasRight) and hasFront) or (hasLeft and hasRight)):
-			#Create a new intersection node
-			#Inside the node store our travel angle and other data...
+			#There a new intersection, we need to create a correct amount of nodes
+			currentPath.visited = True;
+			#current index
+			currentIndex = len(nodeList)-1
+			#work right to left so ensure we turn left to right
+			if(hasRight) {
+				newPath = PathNode(currentPath.ID, -90)
+				#insert the node after our current parent
+				for i, j in enumerate(nodeList):
+					if j.ID == newPath.parentID:
+						nodeList.insert(j+1,newPath)
+			}
+			if(hasFront) {
+				newPath = PathNode(currentPath.ID, 0)
+				#insert the node after our current parent
+				for i, j in enumerate(nodeList):
+					if j.ID == newPath.parentID:
+						nodeList.insert(j+1,newPath)
+			}
+			if(hasLeft) {
+				newPath = PathNode(currentPath.ID, 90)
+				#insert the node after our current parent
+				for i, j in enumerate(nodeList):
+					if j.ID == newPath.parentID:
+						nodeList.insert(j+1,newPath)
+			}
 			
-			#Make a decision on direction and add to nodes, turn etc... yeah
+			#Inside the node we store our travel angle and other data...
+			#Our decision is always to take the left-most path
+			currentNode = nodeList[currentIndex]
 			
 		else:
 			moveFoward(47,47)
@@ -179,17 +230,22 @@ try:
 			while any(m.state for m in (leftMotor, rightMotor)):
 				sleep(0.1)
 			moveFoward(47,47)
-			sleep(2)
+			sleep(2)"""
 		try:
 			c = sys.stdin.read(1)
 			print "Current char", repr(c)
-			#The function tester!
+			#The function tester
 			if(c == 'c'):
-				Sound.tone([(1000, 500, 500)] * 3)
 				rightMotor.stop()
 				leftMotor.stop()
 				sensorMotor.stop()
-				break
+				#break
+			elif(c == 'a'):
+				rotateRobot(-90, 50)
+			elif(c == 'd'):
+				rotateRobot(90, 50)
+			elif(c == 's'):
+				rotateRobot(180, 50)
 				
 		#printSensors()"""
 			
