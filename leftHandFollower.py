@@ -165,15 +165,15 @@ def detectFront():
 
 def detectSkew(currAngle):
 	if currAngle < forwardAngle :
-		diff = (forwardAngle - currAngle) % 360
-		while diff != 0:
-			moveFoward(55, 47)
-			diff = (forwardAngle - currAngle) % 360
+		diff = (forwardAngle - currAngle) 
+		while not diff >= 0 and diff <= _ERROR_BOUNDS_GS: #0 <= diff <= 5
+			moveFoward(55, 47) # Movement speed has to be calibrated
+			diff = (forwardAngle - currAngle) 
 	else: #currAngle > forwardAngle
-		diff = (currAngle - forwardAngle) % 360
-		while diff != 0:
+		diff = (currAngle - forwardAngle) 
+		while not diff >= 0 and diff <= _ERROR_BOUNDS_GS: #0 <= diff <= 5
 			moveFoward(55, 47)
-			diff = (currAngle - forwardAngle) % 360
+			diff = (currAngle - forwardAngle)
 		
 			
 #Print sensors		
