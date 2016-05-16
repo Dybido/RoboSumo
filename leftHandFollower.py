@@ -1,3 +1,4 @@
+
 #!/usr/bin/python
 
 #Possible loops.
@@ -21,6 +22,7 @@ from ev3dev.auto import *
 #Connect motors
 rightMotor = LargeMotor(OUTPUT_A)
 leftMotor = LargeMotor(OUTPUT_B)
+clampMotor = LargeMotor(OUTPUT_D)
 sensorMotor = MediumMotor(OUTPUT_C) #SENSOR
 
 # Connect touch sensors.
@@ -174,8 +176,18 @@ def detectSkew(currAngle):
 		while not diff >= 0 and diff <= _ERROR_BOUNDS_GS: #0 <= diff <= 5
 			moveFoward(55, 47)
 			diff = (currAngle - forwardAngle)
-		
-			
+
+#Make sure that it's color_colour mode
+#Robot has to be objectively close enough to clamp 
+def detectCan(){
+	if ls.color() == 5: 
+		while detectFront() > _MIN_DIST: #_MIN_DIST should be the minimum distance it should be for the can to be clamped
+			moveFoward(30, 30)
+		clampMotor.run_direct(duty_cycle_sp=50, time_sp=1500)
+	else:
+		pass
+}
+
 #Print sensors		
 def printSensors():
 	print "Gyro ", gs.value()
