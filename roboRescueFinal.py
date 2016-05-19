@@ -8,6 +8,7 @@ _DISTANCE_BETWEEN_WALLS = 290 #mm
 _WALL_HEIGHT = 29 #cm
 _ERROR_BOUNDS_GS = 5 #degrees
 _ERROR_BOUNDS_US = 2 #cm
+_SENSOR_MOTOR_FORWARD = 0 #use device browser to calibrate
 _STANDARD_SPEED = 40 #duty cycle
 
 from time   import sleep
@@ -50,6 +51,16 @@ class PathNode():
     #children = []
 	visited = False
 
+
+#begin traversing a path
+def startPath(path):
+	turnCorner(path.directionAngle)
+
+def turnCorner(inAngle):
+	rotateRobot(inAngle, 50)
+	moveFoward(50, 50)
+	detectSkew(gyroValue())
+	sleep(1) #To get out of the current corner so as to not redetect	
 	
 #Simply to mod gyro value
 def gyroValue():
@@ -68,7 +79,7 @@ def rotateRobot(inAngle, speed):
 	forwardAngle += inAngle
 	
 	rotateAmount = 205/90
-	rotateError = 3 #degrees
+	rotateError = 1 #degrees
 	driftFactor = 1 #degrees
 	currentGyro = gyroValue()
 	
@@ -77,7 +88,7 @@ def rotateRobot(inAngle, speed):
 	angle = (forwardAngle-currentGyro)%360
 	"""if(inAngle < 0):
 		angle = 0-(360-angle);"""
-	print "Start: ", forwardAngle, currentGyro, angle
+	#print "Start: ", forwardAngle, currentGyro, angle
 
 	leftMotor.duty_cycle_sp = speed
 	rightMotor.duty_cycle_sp = speed
@@ -91,9 +102,9 @@ def rotateRobot(inAngle, speed):
 	angleHave = gyroValue()
 	while((angleWant < angleHave - rotateError) or (angleWant > angleHave + rotateError)):
 		angleDifference = angleWant-angleHave
-		print " "
-		print "AngleWant: ", angleWant
-		print "AngleHave: ", angleHave
+		#print " "
+		#print "AngleWant: ", angleWant
+		#print "AngleHave: ", angleHave
 		leftMotor.duty_cycle_sp = speed/2
 		rightMotor.duty_cycle_sp = speed/2
 		leftMotor.run_to_rel_pos(position_sp=angleDifference*rotateAmount, stop_command="brake")
@@ -103,18 +114,19 @@ def rotateRobot(inAngle, speed):
 	print "Accuracy: ", currentGyro+angle, gyroValue()
 	
 	
-hasLeft = 0
-hasFront = 1
-hasRight = 0
+hasLeft = False
+hasFront = True
+hasRight = False
 def sensorThread():
 	"""Checks values on each side for intersections"""
 	global hasLeft
 	global hasFront
 	global hasRight
 	#TODO: sensor class to store values? or join
-	hasLeft = hasNoWall(detectDistance(-90))
-	hasFront = hasNoWall(detectDistance(0))
-	hasRight = hasNoWall(detectDistance(90))
+	hasLeft = hasNoWall(detectDistance(_SENSOR_MOTOR_FORWARD+90))
+	hasFront = hasNoWall(detectDistance(_SENSOR_MOTOR_FORWARD))
+	hasRight = hasNoWall(detectDistance(_SENSOR_MOTOR_FORWARD-90))
+	reset = detectDistance(_SENSOR_MOTOR_FORWARD+90)
 
 def hasNoWall(gs_val):
 	"""
@@ -168,98 +180,123 @@ termios.tcsetattr(fd, termios.TCSANOW, newattr)
 oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
 fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
-sensorMotor.duty_cycle_sp = 50
+sensorMotor.duty_cycle_sp = 100
 rightMotor.duty_cycle_sp = 50
 leftMotor.duty_cycle_sp = 50
-forwardAngle = gyroValue() #allow us to monitor the path as we are moving forward
-print "starter: ", forwardAngle
 #start calibration mode to sit and recal gyro()
 
 #Create our initial path
 currentPath = PathNode(-1, 0)
 nodeList.append(currentPath)
+
+forwardAngle = gyroValue() #allow us to monitor the path as we are moving forward
+backToLast = False
+print "starter: ", forwardAngle
 try:
-	i = 0
-	while(i < 5):
-		forwardAngle = gyroValue()
-		print "starter2: ", forwardAngle
-		sleep(0.2)
-		i = i+1
-	print "ready!"
 	while not btn.any():
 		"""
 		Run a thread for detecting left front and right.
 		Join thread to be used by main thread which controls direction and motors
 		
-		Motors: Motor.count_per_rot, run_to_rel_pos
-		
-		How to keep going forward:
-		Each turn add angle and mod 360. All angles will be 0-360
-		
-		currentDir = gyroValue()
-		if(forwardAngle + degrees > 360 || forwardAngle - degrees < 0) {
-			//shift angles to work at a better range
-			changedForwardAngle = (forwardAngle-180)%360
-			changedCurrentDir = (currentDir-180)%360
-			
-			if(changedCurrentDir - degrees) > (changedForwardAngle):
-				# print('right')
-				rightMotor.duty_cycle_sp = 40
-			TODO:Finish
-		}
-		
 		"""
 		
 		#Run sensorThread()
-		"""sensorThread();
+		sensorThread();
 		
 		#Get values out of sensorThread specifying if theres walls or not
 		if(((hasLeft or hasRight) and hasFront) or (hasLeft and hasRight)):
-			#There a new intersection, we need to create a correct amount of nodes
-			currentPath.visited = True;
-			#current index
-			currentIndex = len(nodeList)-1
-			#work right to left so ensure we turn left to right
-			if(hasRight) {
-				newPath = PathNode(currentPath.ID, -90)
-				#insert the node after our current parent
+			if(backToLast):
+				#We're going back to last node
+				#The current node is a parent node
+				
+				#Get the next non-transversed node and check its parent is current
+				currentIndex = -1
 				for i, j in enumerate(nodeList):
-					if j.ID == newPath.parentID:
-						nodeList.insert(j+1,newPath)
-			}
-			if(hasFront) {
-				newPath = PathNode(currentPath.ID, 0)
-				#insert the node after our current parent
-				for i, j in enumerate(nodeList):
-					if j.ID == newPath.parentID:
-						nodeList.insert(j+1,newPath)
-			}
-			if(hasLeft) {
-				newPath = PathNode(currentPath.ID, 90)
-				#insert the node after our current parent
-				for i, j in enumerate(nodeList):
-					if j.ID == newPath.parentID:
-						nodeList.insert(j+1,newPath)
-			}
+						if j.parentID == current.ID and not j.visited:
+							currentIndex = i
+				
+				if(currentIndex != -1):
+					#We found a node on same parent to traverse!
+					startPath(nodeList[currentIndex])
+					backToLast = False
+				else:
+					#Our node doesn't have any more directions to go
+					#Need to go back again so dont set backToLast
+					#Not sure how to get which intersection to take...
+					pass
+			else:
+				#There a new intersection, we need to create a correct amount of nodes
+				currentPath.visited = True;
+				#current index
+				currentIndex = 0
+				#work right to left so ensure we turn left to right
+				if(hasLeft):
+					newPath = PathNode(currentPath.ID, -90)
+					print "Creating left node"
+					#insert the node after our current parent
+					for i, j in enumerate(nodeList):
+						if j.ID == newPath.parentID:
+							nodeList.insert(i+1,newPath)
+							currentIndex = i
+				if(hasFront):
+					newPath = PathNode(currentPath.ID, 0)
+					print "Creating front node"
+					#insert the node after our current parent
+					for i, j in enumerate(nodeList):
+						if j.ID == newPath.parentID:
+							nodeList.insert(i+1,newPath)
+							currentIndex = i
+				if(hasRight):
+					newPath = PathNode(currentPath.ID, 90)
+					#print currentPath.ID, " ", newPath.parentID, " ", newPath.ID
+					print "Creating right node"
+					#insert the node after our current parent
+					for i, j in enumerate(nodeList):
+						if j.ID == newPath.parentID:
+							nodeList.insert(i+1,newPath)
+							currentIndex = i
+				
+				#Inside the node we store our travel angle and other data...
+				#Our decision is always to take the left-most path
+				currentPath = nodeList[currentIndex+1]
+				print "New current node:", currentPath.ID, ", parent: ", nodeList[currentIndex].ID
+				#for i in range(len(nodeList)):
+				#	print "Node ID: ", nodeList[i].ID
+				print "Node list length: ", len(nodeList)
+				
+				#begin traversing the path
+				startPath(currentPath)
+		elif(hasLeft or hasRight):
+			#We need to turn the robot but no need to create a path/intersection
+			if(hasRight):
+				print "Turning right!"
+				turnCorner(90)
+			else:
+				print "Turning left!"
+				turnCorner(-90)
+		elif(not hasLeft and not hasFront and not hasRight):
+			print "We are at a dead end, turn back!"
+			#Need to go back to the last node and check the next value...
+			#Go back to parent and do the second/third nodes.
+			#If they don't exist (next node isnt sequential ID number) then go
+			#back to the again parent node etc... while/for loops
+			currentPath.visited = True
+			turnCorner(180)
+			parentIndex = 0
+			#Search for parents index
+			for i, j in enumerate(nodeList):
+					if j.ID == currentPath.parentID:
+						parentIndex = i
 			
-			#Inside the node we store our travel angle and other data...
-			#Our decision is always to take the left-most path
-			currentNode = nodeList[currentIndex]
-			
+			#Set variable to say next time we get to intersection we want to traverse the next node.
+			#Set current to parent
+			backToLast = True
+			currentPath = nodeList[parentIndex]
 		else:
 			moveFoward(47,47)
-			direction = gyroValue();
-			print "gyrovalue: ", (direction-5)%360, forwardAngle
-			
-			forwardAngle-=90
-			#moveTurn(90, 50, [leftMotor, rightMotor])
-			leftMotor.run_to_rel_pos(position_sp=225, stop_command="brake")
-			rightMotor.run_to_rel_pos(position_sp=-225, stop_command="brake")
-			while any(m.state for m in (leftMotor, rightMotor)):
-				sleep(0.1)
-			moveFoward(47,47)
-			sleep(2)"""
-		detectSkew(gyroValue())
+			detectSkew(gyroValue())
+		
+		#detectSkew(gyroValue())
 		try:
 			c = sys.stdin.read(1)
 			print "Current char", repr(c)
